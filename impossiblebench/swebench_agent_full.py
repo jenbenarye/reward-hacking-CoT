@@ -1,22 +1,4 @@
 """
-This file is adapted from the ImpossibleBench repository.
-
-Original source: [ImpossibleBench](https://arxiv.org/abs/2510.20270)
-
-Citation:
-@misc{zhong2025impossiblebench,
-  title         = {ImpossibleBench: Measuring LLMs' Propensity of Exploiting Test Cases},
-  author        = {Zhong, Ziqian and Raghunathan, Aditi and Carlini, Nicholas},
-  year          = {2025},
-  eprint        = {2510.20270},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.LG},
-  doi           = {10.48550/arXiv.2510.20270},
-  url           = {https://arxiv.org/abs/2510.20270}
-}
-
-
-
 Full scaffold agent for SWE-bench tasks.
 
 This module implements a tool-based agent for SWE-bench that uses multiple tools

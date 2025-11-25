@@ -8,6 +8,7 @@ import json
 import logging
 import platform
 import shlex
+import time
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Callable, Literal
@@ -132,6 +133,11 @@ def impossible_swebench(
         dummy: Dummy mode - "oracle" or "nochange"
         shuffle: Whether to shuffle the samples
     """
+    start_time = time.time()
+    logger.info("=" * 80)
+    logger.info(f"Starting impossible_swebench task creation (split={split})")
+    logger.info("=" * 80)
+
     assert find_spec("swebench"), (
         "To run SWE-bench, please install the optional SWE-bench dependency, by running `pip install inspect-evals[swe_bench]`"
     )
@@ -142,6 +148,7 @@ def impossible_swebench(
         raise ValueError(f"Invalid split: {split}. Must be one of {valid_splits}")
 
     # Load dataset from HuggingFace
+    load_start = time.time()
     samples = hf_dataset(
         path="fjzzq2002/impossible_swebench",
         split=split,
@@ -166,6 +173,8 @@ def impossible_swebench(
             ],
         ),
     )
+    load_time = time.time() - load_start
+    logger.info(f"Loaded {len(samples)} samples from HuggingFace in {load_time:.2f}s")
 
     # Parse JSON string fields if needed
     for sample in samples:
@@ -196,12 +205,15 @@ def impossible_swebench(
                 "If you want to use k8s, you are responsible for building the images yourself, using the original swebench library."
             )
         # Build the images for the samples - can take a long time
-
+        logger.info(f"Building Docker images for {len(samples)} samples (this may take 30+ minutes)...")
+        build_start = time.time()
         id_to_docker_image_map = build_images(
             samples=samples,
             force_rebuild=False,
-            use_remote_images=pull_remote_images_if_available,
+            use_remote_images=False, # Changed: Skip pulling, only use what's already local. prev was: pull_remote_images_if_available,
         )
+        build_time = time.time() - build_start
+        logger.info(f"✓ Docker image building completed in {build_time/60:.1f} min ({len(id_to_docker_image_map)} images)")
 
         # Replace docker_image_from_id function with authoritative source
         def get_docker_image(instance_id: str) -> str:
@@ -209,6 +221,15 @@ def impossible_swebench(
 
         docker_image_from_id = get_docker_image
 
+    else:
+        # No images built - use fallback naming conventions
+        if docker_image_from_id is None:
+            if pull_remote_images_if_available:
+                docker_image_from_id = get_remote_docker_image_from_id
+            else:
+                docker_image_from_id = get_local_docker_image_from_id
+
+    # Configure sandboxes
     for sample in samples:
         sample.metadata = sample.metadata or {}
         sample.input = input_prompt.format(issue_text=sample.input)
@@ -249,6 +270,10 @@ def impossible_swebench(
         task_name += "_iv"
     if dummy:
         task_name += f"_{dummy}"
+
+    total_time = time.time() - start_time
+    logger.info(f"Task '{task_name}' created with {len(samples)} samples in {total_time:.1f}s")
+
     return Task(
         name=task_name,
         dataset=samples,
@@ -273,7 +298,11 @@ def get_sandbox_config_file(
     """Generate sandbox configuration file for an instance."""
     COMPOSE_FILES_DIR.mkdir(parents=True, exist_ok=True)
 
-    image_name = docker_image_from_id(instance_id)
+    try:
+        image_name = docker_image_from_id(instance_id)
+    except Exception as e:
+        logger.error(f"Failed to get image name for {instance_id}: {e}")
+        raise
 
     # If a custom sandbox config template file is provided, use it as template
     if sandbox_config_template_file:
