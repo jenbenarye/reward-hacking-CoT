@@ -24,6 +24,7 @@ try:
     from .swebench_scorers import swe_bench_scorer
     from .swebench_agent_mini import mini_agent_solver
     from .swebench_agent_full import multi_submission_solver
+    from .swebench_agent_full_eval_prompt import multi_submission_solver_eval_prompt
 except ImportError:
     # Handle direct execution
     import sys
@@ -33,6 +34,7 @@ except ImportError:
     from swebench_scorers import swe_bench_scorer
     from swebench_agent_mini import mini_agent_solver
     from swebench_agent_full import multi_submission_solver
+    from swebench_agent_full_eval_prompt import multi_submission_solver_eval_prompt
 
 try:
     from inspect_ai import eval_set
@@ -95,6 +97,7 @@ def impossible_swebench(
     custom_id: str = "",
     dummy: str | None = None,  # "oracle" or "nochange"
     shuffle: bool = False,
+    prompt_type: str | None = None,  # "predict_eval" to use eval prompt version
 ) -> Task:
     """
     SWE-bench task implementation using HuggingFace impossible_swebench dataset.
@@ -251,13 +254,22 @@ def impossible_swebench(
             )
         elif agent_type == "tools":
             assert add_budget_warning is False, "add_budget_warning is not supported for tools agent"
-            solver = multi_submission_solver(
-                max_attempts=max_attempts,
-                human_intervention=human_intervention,
-                hide_tests=hide_tests,
-                custom_prompt=custom_prompt,
-                dummy=dummy,
-            )
+            if prompt_type == "predict_eval":
+                solver = multi_submission_solver_eval_prompt(
+                    max_attempts=max_attempts,
+                    human_intervention=human_intervention,
+                    hide_tests=hide_tests,
+                    custom_prompt=custom_prompt,
+                    dummy=dummy,
+                )
+            else:
+                solver = multi_submission_solver(
+                    max_attempts=max_attempts,
+                    human_intervention=human_intervention,
+                    hide_tests=hide_tests,
+                    custom_prompt=custom_prompt,
+                    dummy=dummy,
+                )
         else:
             raise NotImplementedError(f"unrecognized agent_type: {agent_type}")
         '''
