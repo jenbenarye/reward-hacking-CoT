@@ -17,7 +17,7 @@ def replicate_swebench():
     """
     tasks = []
     max_dockers = 50 # orig: 50. # Fewer containers = less disk/CPU
-    max_connections = 50
+    max_connections = 30
 
     # for the human intervention experiment, pass custom_prompt = "" and set human_intervention = True
 
