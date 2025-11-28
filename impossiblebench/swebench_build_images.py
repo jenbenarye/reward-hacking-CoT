@@ -15,7 +15,7 @@ def build_images(
     force_rebuild: bool = False,
     use_remote_images: bool = True,
     force_arch: Literal["", "arm64", "x86_64"] = "",
-    pull_max_workers: int | None = 6,  # Separate control for pull parallelism (defaults to max_workers)
+    pull_max_workers: int | None = None,  # Separate control for pull parallelism (defaults to max_workers)
 ) -> dict[str, str]:
     """This function uses the swe_bench library to build the docker images for the SWE-bench dataset.
 

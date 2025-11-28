@@ -210,7 +210,7 @@ def impossible_swebench(
         id_to_docker_image_map = build_images(
             samples=samples,
             force_rebuild=False,
-            use_remote_images=False, # Changed: Skip pulling, only use what's already local. prev was: pull_remote_images_if_available,
+            use_remote_images=pull_remote_images_if_available,
         )
         build_time = time.time() - build_start
         logger.info(f"✓ Docker image building completed in {build_time/60:.1f} min ({len(id_to_docker_image_map)} images)")
@@ -225,9 +225,31 @@ def impossible_swebench(
         # No images built - use fallback naming conventions
         if docker_image_from_id is None:
             if pull_remote_images_if_available:
-                docker_image_from_id = get_remote_docker_image_from_id
+                # Match exact naming of previously pulled images
+                def get_remote_x86_64(instance_id: str) -> str:
+                    # Replace "__" with "_1776_" to match pulled image naming
+                    updated_instance_id = instance_id.replace("__", "_1776_")
+                    return f"swebench/sweb.eval.x86_64.{updated_instance_id}:latest"
+                docker_image_from_id = get_remote_x86_64
             else:
                 docker_image_from_id = get_local_docker_image_from_id
+
+    # block added to only use local images: Filter to only samples with locally available images
+    import docker
+    try:
+        client = docker.from_env()
+        local_images = {img.tags[0] for img in client.images.list() if img.tags}
+        original_count = len(samples)
+        samples = [
+            s for s in samples
+            if docker_image_from_id(str(s.id)) in local_images
+        ]
+        print(f"[FILTER] Filtered to {len(samples)}/{original_count} samples with local images")
+    except Exception as e:
+        print(f"[FILTER] WARNING: Could not filter by local images: {e}")
+
+    # end of block added
+
 
     # Configure sandboxes
     for sample in samples:
