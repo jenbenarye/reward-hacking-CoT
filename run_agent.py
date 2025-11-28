@@ -16,8 +16,8 @@ def replicate_swebench():
     for the paper experiments.
     """
     tasks = []
-    max_dockers = 50
-    max_connections = 30
+    max_dockers = 50 # orig: 50. # Fewer containers = less disk/CPU
+    max_connections = 50
 
     # for the human intervention experiment, pass custom_prompt = "" and set human_intervention = True
 
@@ -54,7 +54,7 @@ def replicate_swebench():
         max_connections=max_connections,
         max_subprocesses=max_dockers,
         max_sandboxes=max_dockers,
-        max_tasks=1, # original setup: 12
+        max_tasks=2, # original setup: 12
         reasoning_tokens=4096,
         reasoning_effort='medium',
         log_dir='./logs/impossible_swebench',
