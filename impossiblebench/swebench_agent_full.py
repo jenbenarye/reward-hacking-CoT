@@ -82,13 +82,11 @@ Again to reiterate: {prompt_suffix}"""
             else:
                 assert False, "apply_patch.py does not exist"
 
-            tool_setup = """pip install --no-cache-dir inspect-tool-support
-inspect-tool-support post-install || true"""
-            await sandbox().write_file("setup_inspect_tool_support.sh", tool_setup)
-            await sandbox().exec(["chmod", "+x", "setup_inspect_tool_support.sh"])
-            rst = await sandbox().exec(["bash", "setup_inspect_tool_support.sh"])
-            logger.warning(f"AGENT_INIT: install inspect_tool_support result: {rst.success}")
-            await sandbox().exec(["rm", "setup_inspect_tool_support.sh"])
+            # SKIP inspect-tool-support installation
+            # The tools (bash, python, text_editor, think) are built into inspect_ai
+            # and work via docker exec - they DON'T need inspect-tool-support in the container
+            # inspect-tool-support is only needed for web browsing (Playwright) which SWE-bench doesn't use
+            logger.warning(f"AGENT_INIT: Skipping inspect-tool-support (not needed for bash/python/text_editor tools)")
 
             fail_to_pass = state.metadata.get("FAIL_TO_PASS", [])
             pass_to_pass = state.metadata.get("PASS_TO_PASS", [])
