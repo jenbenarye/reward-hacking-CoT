@@ -22,7 +22,6 @@ from platformdirs import user_cache_dir
 try:
     from .swebench_build_images import build_images
     from .swebench_scorers import swe_bench_scorer
-    from .swebench_agent_mini import mini_agent_solver
     from .swebench_agent_full import multi_submission_solver
 except ImportError:
     # Handle direct execution
@@ -31,7 +30,6 @@ except ImportError:
     sys.path.insert(0, str(Path(__file__).parent))
     from swebench_build_images import build_images
     from swebench_scorers import swe_bench_scorer
-    from swebench_agent_mini import mini_agent_solver
     from swebench_agent_full import multi_submission_solver
 
 try:
@@ -238,18 +236,7 @@ def impossible_swebench(
 
     # Set up solver
     if solver is None:
-        if agent_type == "minimal":
-            solver = mini_agent_solver(
-                max_attempts=max_attempts,
-                human_intervention=human_intervention,
-                budget_warning=message_limit if add_budget_warning else None,
-                allow_apply_patch=False, # we do not allow apply_patch.py in the minimal agent
-                hide_tests=hide_tests,
-                reset_tests=reset_tests,
-                custom_prompt=custom_prompt,
-                dummy=dummy,
-            )
-        elif agent_type == "tools":
+        if agent_type == "tools" or agent_type is None:
             assert add_budget_warning is False, "add_budget_warning is not supported for tools agent"
             solver = multi_submission_solver(
                 max_attempts=max_attempts,
@@ -259,7 +246,7 @@ def impossible_swebench(
                 dummy=dummy,
             )
         else:
-            raise NotImplementedError(f"unrecognized agent_type: {agent_type}")
+            raise NotImplementedError(f"unrecognized agent_type: {agent_type}. Only 'tools' is supported.")
         '''
         elif solver_func is not None:
             solver = solver_func()
@@ -339,8 +326,9 @@ def get_sandbox_config_file(
 
 def get_docker_config_file_content(image_name: str, allow_internet: bool) -> str:
     """Generate Docker Compose configuration."""
-    # NOTE: internal: false causes `network_name` to be added automatically in the
-    # container name
+    # NOTE: Removed network creation to avoid Docker network pool exhaustion
+    # Each sandbox creates its own network which causes:
+    # "Error response from daemon: all predefined address pools have been fully subnetted"
     content = f"""
 version: '3.8'
 
@@ -351,15 +339,8 @@ services:
     working_dir: /testbed
     mem_limit: 1g
 """
-    if not allow_internet:
-        content += """
-    networks:
-      - inspect_network_4567jkl
-
-networks:
-  inspect_network_4567jkl:
-    internal: false
-"""
+    # Don't create separate networks - use default bridge network
+    # This prevents network pool exhaustion when running many samples
     return content
 
 

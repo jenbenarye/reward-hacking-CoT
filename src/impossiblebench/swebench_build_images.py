@@ -43,6 +43,14 @@ def build_images(
 
         extra_build_instance_images_kwargs = {"tag": LATEST}
 
+    # Configure logging to show progress
+    import sys
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        stream=sys.stdout
+    )
+    # Note: We keep swebench's logger disabled to avoid spam, but use our own logger
     getLogger().handlers = []  # Swe-bench adds a global logger, which we disable.
     # Code copied from the swe_bench repository
     docker_client = DockerClient.from_env()
@@ -63,6 +71,9 @@ def build_images(
         id_to_docker_image[swebench_instance["instance_id"]] = docker_image_name
 
     # Get list of locally available Docker images
+    print(f"\n{'='*60}")
+    print(f"Checking Docker images for {len(samples_hf)} samples...")
+    print(f"{'='*60}")
     available_docker_images = [
         image.tags[0] for image in docker_client.images.list() if len(image.tags) > 0
     ]
@@ -71,31 +82,39 @@ def build_images(
         for s in samples_hf
         if id_to_docker_image[s["instance_id"]] not in available_docker_images
     ]
+    print(f"Images already available: {len(samples_hf) - len(samples_to_build_images_for)}/{len(samples_hf)}")
+    print(f"Images to build/pull: {len(samples_to_build_images_for)}/{len(samples_hf)}")
+    print(f"{'='*60}\n")
 
     # Try to pull images from Docker Hub first if requested
     if use_remote_images and len(samples_to_build_images_for) > 0:
-        logger.info(
-            f"Attempting to pull {len(samples_to_build_images_for)} SWE-BENCH images from Docker Hub"
-        )
+        print(f"\n{'='*60}")
+        print(f"Attempting to pull {len(samples_to_build_images_for)} images from Docker Hub...")
+        print(f"{'='*60}")
         successfully_pulled = []
+        failed_pulls = []
 
-        for sample in samples_to_build_images_for:
+        for i, sample in enumerate(samples_to_build_images_for, 1):
             instance_id = sample["instance_id"]
             image_name = id_to_docker_image[instance_id]
             # Extract just the image name without the tag
             image_base_name = image_name.split(":")[0]
 
+            print(f"[{i}/{len(samples_to_build_images_for)}] Pulling {image_name}...", end=" ", flush=True)
             try:
-                logger.info(f"Pulling {image_name}...")
                 docker_client.images.pull(image_name)
                 # Tag the pulled image with the expected name
                 docker_client.api.tag(image_name, image_base_name, "latest")
                 successfully_pulled.append(instance_id)
-                logger.info(f"Successfully pulled {image_name}")
+                print("✓ Success")
             except Exception as e:
-                logger.warning(f"Failed to pull {image_name}: {e}")
+                failed_pulls.append((image_name, str(e)))
+                print(f"✗ Failed: {e}")
 
-        logger.info(f"Pulled {len(successfully_pulled)} images from Docker Hub")
+        print(f"\nPulled {len(successfully_pulled)}/{len(samples_to_build_images_for)} images from Docker Hub")
+        if failed_pulls:
+            print(f"Failed to pull {len(failed_pulls)} images - will build locally")
+        print(f"{'='*60}\n")
 
         # Remove successfully pulled images from the build list
         samples_to_build_images_for = [
@@ -113,16 +132,36 @@ def build_images(
 
     # Build any remaining images locally
     if len(samples_to_build_images_for) > 0:
-        logger.warning("BUILDING SWE-BENCH IMAGES. NOTE: This can take a long time.")
-        build_instance_images(
-            client=docker_client,
-            dataset=samples_hf,
-            force_rebuild=force_rebuild,
-            max_workers=max_workers,
-            **extra_build_instance_images_kwargs,
-        )
+        print(f"\n{'='*60}")
+        print(f"BUILDING {len(samples_to_build_images_for)} SWE-BENCH IMAGES LOCALLY")
+        print(f"NOTE: This can take a VERY long time (hours for 100+ images)")
+        print(f"Using {max_workers} parallel workers")
+        print(f"{'='*60}\n")
+
+        # Update the list to exclude successfully pulled images
+        samples_to_build_images_for = [
+            s
+            for s in samples_to_build_images_for
+            if s["instance_id"] not in successfully_pulled
+        ]
+
+        if len(samples_to_build_images_for) > 0:
+            print(f"Building {len(samples_to_build_images_for)} images...")
+            build_instance_images(
+                client=docker_client,
+                dataset=samples_hf,
+                force_rebuild=force_rebuild,
+                max_workers=max_workers,
+                **extra_build_instance_images_kwargs,
+            )
+            print(f"\nBuild complete!")
+        else:
+            print("All images were successfully pulled - no local builds needed.")
 
     # Check that all the images were built
+    print(f"\n{'='*60}")
+    print("Verifying all images are available...")
+    print(f"{'='*60}")
     available_docker_images = [
         image.tags[0] for image in docker_client.images.list() if len(image.tags) > 0
     ]
@@ -136,9 +175,16 @@ def build_images(
         for s in samples_hf
         if id_to_docker_image[s["instance_id"]] not in available_docker_images
     ]
-    print(f'{bad_instances=}')
+
+    if bad_instances:
+        print(f"WARNING: {len(bad_instances)} images are missing: {bad_instances[:5]}...")
+    else:
+        print(f"✓ All {len(samples_hf)} images are available!")
+    print(f"{'='*60}\n")
+
     assert len(missing_images) == 0, (
-        f"Not all images were built: {missing_images}"
+        f"Not all images were built: {missing_images[:10]}..." +
+        (f" (and {len(missing_images) - 10} more)" if len(missing_images) > 10 else "")
     )
 
     return id_to_docker_image
