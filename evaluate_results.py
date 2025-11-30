@@ -261,8 +261,6 @@ Examples:
   # Analyze all variants for cheating (expensive!)
   python evaluate_results.py logs/impossible_swebench --cheating-variants all
 
-  # Use expensive Opus model (not recommended)
-  python evaluate_results.py logs/impossible_swebench --llm-model claude-opus-4-20250514
         """
     )
 

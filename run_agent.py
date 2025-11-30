@@ -5,6 +5,7 @@ Demo script showing how to use ImpossibleBench for evaluation.
 This file demonstrates various evaluation scenarios and configurations.
 """
 
+import argparse
 from inspect_ai import eval, eval_set
 from impossiblebench import impossible_swebench
 
@@ -12,11 +13,15 @@ from impossiblebench import impossible_swebench
 # Paper Replication Settings
 # =============================================================================
 
-def replicate_swebench():
+def replicate_swebench(run_name: str = None, model: str = "anthropic/claude-3-7-sonnet-20250219"):
     """Replicate the SWE-bench experimental settings from the paper.
 
     This matches the exact configuration used in swebench_tasks.py
     for the paper experiments.
+
+    Args:
+        run_name: Name for this run (creates logs/impossible_swebench/<run_name>/)
+        model: Model to use for evaluation
     """
     tasks = []
     max_dockers = 50
@@ -42,26 +47,32 @@ def replicate_swebench():
     print(f"Created {len(tasks)} SWE-bench tasks")
     print(f"Task names: {[t.name for t in tasks]}")
 
+    # Calculate total samples for max_tasks
+    total_samples = sum(len(task.dataset) for task in tasks)
+
+    # Set log directory
+    if run_name:
+        log_dir = f'./logs/impossible_swebench/{run_name}'
+    else:
+        log_dir = './logs/impossible_swebench'
+
+    print(f"\nConfiguration:")
+    print(f"  Model: {model}")
+    print(f"  Run name: {run_name or '(default)'}")
+    print(f"  Log directory: {log_dir}")
+    print(f"  Total samples: {total_samples}\n")
+
     # Run evaluation
     logs = eval_set(
         tasks,
-        model=[
-            # "openai/o4-mini",
-            # Uncomment models used in paper:
-            # "openai/gpt-5",
-            # "anthropic/claude-opus-4-1-20250805",
-            # "openai/gpt-4.1",
-            # "openai/o3",
-            # "anthropic/claude-sonnet-4-20250514",
-            "anthropic/claude-3-7-sonnet-20250219",
-        ],
+        model=[model],
         max_connections=max_connections,
         max_subprocesses=max_dockers,
         max_sandboxes=max_dockers,
-        max_tasks=12,
+        max_tasks=total_samples, # Set max_tasks to total samples
         reasoning_tokens=4096,
         reasoning_effort='medium',
-        log_dir='./logs/impossible_swebench',
+        log_dir=log_dir,
         fail_on_error=False,
         log_dir_allow_dirty=True,
     )
@@ -117,69 +128,59 @@ def demo_custom_prompts():
     return logs
 
 
-def demo_test_access_control():
-    """Control agent's access to tests."""
-    task = impossible_swebench(
-        split="oneoff",
-        agent_type="tools",
-        hide_tests=False,     # Show test files to agent but ...
-        reset_tests=True,     # ... reset any test modifications before scoring
-        limit=2,
-    )
-
-    logs = eval(task, model="openai/gpt-4o")
-    return logs
-
-
-def demo_agent_configuration():
-    """Configure agent behavior."""
-    task = impossible_swebench(
-        split="conflicting",
-        agent_type="minimal",
-        max_attempts=10,                 # Allow up to 10 submission attempts
-        message_limit=30,                # Limit conversation length
-        limit=5,
-    )
-
-    logs = eval(task, model="openai/gpt-4o")
-    return logs
-
-
 # =============================================================================
 # Main entry point
 # =============================================================================
 
 if __name__ == "__main__":
-    import argparse
+    parser = argparse.ArgumentParser(
+        description="Run ImpossibleBench agent evaluations",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run with default model (Sonnet 3.7) and custom run name
+  python run_agent.py replicate_swe --run-name sonnet-3.7-baseline
 
-    parser = argparse.ArgumentParser(description="Run ImpossibleBench demos")
+  # Run with different model
+  python run_agent.py replicate_swe --run-name opus-4-test --model anthropic/claude-opus-4-20250514
+
+  # Run with GPT-4
+  python run_agent.py replicate_swe --run-name gpt4-baseline --model openai/gpt-4-turbo
+        """
+    )
+
     parser.add_argument(
         "demo",
-        choices=[
-            "basic_lcb",
-            "basic_swe",
-            "impossible",
-            "custom_prompts",
-            "test_control",
-            "agent_config",
-            "eval_set",
-            "replicate_lcb",
-            "replicate_swe",
-        ],
+        choices=["replicate_swe"],
         help="Which demo to run"
+    )
+
+    parser.add_argument(
+        "--run-name",
+        type=str,
+        default=None,
+        help="Name for this run (creates logs/impossible_swebench/<run-name>/). If not provided, uses default log directory."
+    )
+
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="anthropic/claude-3-7-sonnet-20250219",
+        help="Model to use for evaluation (default: anthropic/claude-3-7-sonnet-20250219)"
     )
 
     args = parser.parse_args()
 
-    demos = {
-        # "basic_swe": demo_basic_swebench,
-        # "eval_set": demo_eval_set,
-        # "test_control": demo_test_access_control,
-        # "agent_config": demo_agent_configuration,
-        # "custom_prompts": demo_custom_prompts,
-        "replicate_swe": replicate_swebench,
-    }
-
+    # Run the selected demo
+    print(f"\n{'='*60}")
     print(f"Running demo: {args.demo}")
-    logs = demos[args.demo]()
-    print(f"Evaluation complete. Logs: {logs}")
+    print(f"{'='*60}\n")
+
+    if args.demo == "replicate_swe":
+        logs = replicate_swebench(run_name=args.run_name, model=args.model)
+
+    print(f"\n{'='*60}")
+    print(f"Demo complete! Logs saved.")
+    if args.run_name:
+        print(f"Log directory: logs/impossible_swebench/{args.run_name}")
+    print(f"{'='*60}\n")
