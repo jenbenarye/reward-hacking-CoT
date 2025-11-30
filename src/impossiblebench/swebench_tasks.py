@@ -326,8 +326,9 @@ def get_sandbox_config_file(
 
 def get_docker_config_file_content(image_name: str, allow_internet: bool) -> str:
     """Generate Docker Compose configuration."""
-    # NOTE: Removed network creation to avoid Docker network pool exhaustion
-    # Each sandbox creates its own network which causes:
+    # NOTE: Use network_mode: bridge to prevent Docker Compose from creating
+    # a separate network for each compose file. Without this, each compose file
+    # creates its own <project>_default network, causing:
     # "Error response from daemon: all predefined address pools have been fully subnetted"
     content = f"""
 version: '3.8'
@@ -338,8 +339,9 @@ services:
     command: "sleep infinity"
     working_dir: /testbed
     mem_limit: 1g
+    network_mode: bridge
 """
-    # Don't create separate networks - use default bridge network
+    # network_mode: bridge makes all containers use the default Docker bridge network
     # This prevents network pool exhaustion when running many samples
     return content
 
