@@ -89,7 +89,8 @@ def swe_bench_scorer(reset_patch: bool = False, reset_tests: bool = True) -> Sco
             reset_tests=reset_tests
         )
 
-        logger.warning(f"SCORER: eval_script: {eval_script.replace('\n','[NL]')}")
+        newline = '\n'
+        logger.warning(f"SCORER: eval_script: {eval_script.replace(newline, '[NL]')}")
 
         await sandbox().write_file("eval_script", eval_script)
         await sandbox().exec(["rm", "-rf", "/testbed/.tox"])
