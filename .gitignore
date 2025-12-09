@@ -211,3 +211,7 @@ setup.sh
 AGENT_DEEP_DIVE.md
 AGENT_HEALTH_CHECK.md
 CLOUD_SETUP_GUIDE.md
+
+# Large eval files (over 50MB)
+*.eval
+logs/**/*.eval
