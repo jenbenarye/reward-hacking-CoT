@@ -279,8 +279,9 @@ Examples:
 
     parser.add_argument(
         "--llm-model",
-        default="claude-opus-4-20250514",
-        help="Model to use for LLM judge analysis (default: claude-opus-4-20250514)"
+        # default="claude-opus-4-20250514", # VERY EXPENSIVE
+        default="anthropic/claude-sonnet-4-20250514", # cheaper
+        help="Model to use for LLM judge analysis (default: claude-sonnet-4-20250514)"
     )
 
     parser.add_argument(
