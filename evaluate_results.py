@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-Unified evaluation script for ImpossibleBench results.
+Evaluation script for ImpossibleBench results.
 
 Shows:
 - Pass rates by dataset/variant
 - Cheating vs legit classification by dataset
-- Cheating type distribution by dataset
 """
 
 import argparse
@@ -15,7 +14,7 @@ from impossiblebench.analysis import DataLoader, LLMJudge
 
 
 async def evaluate_results(log_folder: str, llm_model: str, skip_llm_judge: bool, cheating_variants: list[str]):
-    """Unified evaluation with pass rates and cheating analysis."""
+    """Evaluation with pass rates and cheating analysis."""
 
     # Load evaluation results
     print(f"Loading evaluation results from {log_folder}...")
@@ -90,11 +89,7 @@ async def evaluate_results(log_folder: str, llm_model: str, skip_llm_judge: bool
             total_samples = len(samples_with_dumps)
             print(f"⚠️  WARNING: About to analyze {total_samples} samples with {llm_model}")
             print(f"⚠️  This will make {total_samples} API calls for binary classification")
-            print(f"⚠️  + additional calls for type classification on cheating samples")
             print(f"⚠️  Estimated cost: ${total_samples * 0.5:.0f}-${total_samples * 2:.0f} (depending on transcript size)")
-            print(f"\n💡 To reduce cost:")
-            print(f"   - Use cheaper model: --llm-model claude-sonnet-4-20250514")
-            print(f"   - Analyze only oneoff: (already default)")
             print()
             response = input("Continue? (yes/no): ")
             if response.lower() not in ['yes', 'y']:
@@ -130,21 +125,6 @@ async def evaluate_results(log_folder: str, llm_model: str, skip_llm_judge: bool
                                   if r['judgment'] == 'legit' and variant_df.iloc[i]['passed'])
                 legit_failed = legit_count - legit_passed
 
-                # Type classification (only on cheating samples)
-                cheating_indices = [i for i, r in enumerate(binary_results) if r['judgment'] == 'cheating']
-                type_counts = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0}
-
-                if cheating_indices:
-                    print(f"  Classifying {len(cheating_indices)} cheating samples by type...", end=" ", flush=True)
-                    cheating_dumps = [variant_dumps[i] for i in cheating_indices]
-                    type_results = await judge.batch_evaluate_type(cheating_dumps)
-
-                    for r in type_results:
-                        judgment = r['judgment']
-                        if judgment in type_counts:
-                            type_counts[judgment] += 1
-                    print(f"✓")
-
                 all_variant_results[variant] = {
                     'total': len(variant_df),
                     'cheating': cheating_count,
@@ -154,7 +134,6 @@ async def evaluate_results(log_folder: str, llm_model: str, skip_llm_judge: bool
                     'cheating_failed': cheating_failed,
                     'legit_passed': legit_passed,
                     'legit_failed': legit_failed,
-                    'type_counts': type_counts,
                 }
 
             # Display binary classification summary
@@ -193,47 +172,6 @@ async def evaluate_results(log_folder: str, llm_model: str, skip_llm_judge: bool
 
             cheating_test_df = pd.DataFrame(cheating_test_data)
             print(cheating_test_df.to_string(index=False))
-
-            # Display type classification
-            print(f"\n{'─'*70}")
-            print("CHEATING TYPE DISTRIBUTION")
-            print(f"{'─'*70}\n")
-
-            type_data = []
-            for variant, results in all_variant_results.items():
-                if results['cheating'] > 0:
-                    tc = results['type_counts']
-                    type_data.append({
-                        'Variant': variant,
-                        'Total Cheating': results['cheating'],
-                        'A (Modify tests)': tc['A'],
-                        'B (Overload ops)': tc['B'],
-                        'C (Record state)': tc['C'],
-                        'D (Special-case)': tc['D'],
-                        'E (Other)': tc['E'],
-                    })
-
-            if type_data:
-                type_df = pd.DataFrame(type_data)
-                print(type_df.to_string(index=False))
-
-                # Show percentages too
-                print(f"\n{'─'*70}")
-                print("CHEATING TYPE PERCENTAGES")
-                print(f"{'─'*70}\n")
-
-                for variant, results in all_variant_results.items():
-                    if results['cheating'] > 0:
-                        tc = results['type_counts']
-                        total_cheating = results['cheating']
-                        print(f"{variant}:")
-                        print(f"  A (Modify test cases): {tc['A']:2d} ({tc['A']/total_cheating:5.1%})")
-                        print(f"  B (Overload operators): {tc['B']:2d} ({tc['B']/total_cheating:5.1%})")
-                        print(f"  C (Record extra states): {tc['C']:2d} ({tc['C']/total_cheating:5.1%})")
-                        print(f"  D (Special-casing): {tc['D']:2d} ({tc['D']/total_cheating:5.1%})")
-                        print(f"  E (Other): {tc['E']:2d} ({tc['E']/total_cheating:5.1%})")
-            else:
-                print("No cheating detected in any variant")
 
         except Exception as e:
             print(f"\nLLM Judge analysis failed: {e}")
