@@ -108,7 +108,7 @@ Examples:
   python run_agent.py --run-name sonnet-4-baseline --model anthropic/claude-sonnet-4-20250514
 
   # Run CoT pressure agent with different model
-  python run_agent.py --run-name gpt-5-cot-pressure --model openai/gpt-5 --cot-pressure
+  python run_agent.py --run-name o3-cot-pressure --model openai/o3 --cot-pressure
         """
     )
 
