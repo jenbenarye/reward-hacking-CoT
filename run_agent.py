@@ -12,7 +12,7 @@ from impossiblebench import impossible_swebench
 
 
 # =============================================================================
-# Run agent w/o CoT monitoring pressure
+# Run agent
 # =============================================================================
 
 def run_agent(run_name: str = None, model: str = "anthropic/claude-3-7-sonnet-20250219", cot_pressure: bool = False):

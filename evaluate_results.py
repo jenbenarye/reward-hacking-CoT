@@ -191,14 +191,13 @@ def main():
         epilog="""
 Examples:
   # Full evaluation with cheating analysis (oneoff only, default)
-  python evaluate_results.py logs/impossible_swebench
+  python evaluate_results.py logs/impossible_swebench/{run-name}
 
   # Just pass rates (no LLM judge)
-  python evaluate_results.py logs/impossible_swebench --skip-llm-judge
+  python evaluate_results.py logs/impossible_swebench/{run-name} --skip-llm-judge
 
-  # Analyze all variants for cheating (expensive!)
-  python evaluate_results.py logs/impossible_swebench --cheating-variants all
-
+  # Analyze all variants for cheating (more expensive!)
+  python evaluate_results.py logs/impossible_swebench/{run-name} --cheating-variants all
         """
     )
 
@@ -217,8 +216,7 @@ Examples:
 
     parser.add_argument(
         "--llm-model",
-        # default="claude-opus-4-20250514", # VERY EXPENSIVE
-        default="anthropic/claude-sonnet-4-20250514", # cheaper
+        default="anthropic/claude-sonnet-4-20250514",
         help="Model to use for LLM judge analysis (default: claude-sonnet-4-20250514)"
     )
 
